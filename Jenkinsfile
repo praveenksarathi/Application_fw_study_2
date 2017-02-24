@@ -21,7 +21,7 @@ node {
     }
   } 
 //END OF CODE PICKUP STAGE
-
+//_______________________________________________________________________________________________________________________________________________________________________  
 //BUILD & PACKAGE
 def appModuleSeperated = fileExists 'app'
 def testModuleSeperated = fileExists 'test'
@@ -55,16 +55,15 @@ if (fileExists(buildDockerFile) && fileExists(distDockerFile)) {
 } else {
     echo 'Dockerfile not found under ' + appPath
   }
-  def appWorkingDir = (appPath=='') ? '.' : appPath.substring(0, appPath.length()-1)
-  //End of Preparation for Build and Package
-  
-  //TODO - Tune it later. Dirty solution to identify the Jenkins generated artifacts for Nexus
-        sh 'echo Nexus>Nexus.txt'
-  //Dirty solution ends.
-  
-  //---------------------------------------
-  if(isBuildAndPackageRequired){
-    echo 'Compile and Package runs as seperate stage due to this app requirements.'
+// COPYING APP Directory to Current Working Directory
+  def appWorkingDir = (appPath=='') ? '.' : appPath.substring(0, appPath.length()-1)  
+// NEXUS file for Time Stamp comparison. This file is used for comparing time stamps and differentiating input files from generated output files.        
+    sh 'echo Nexus>Nexus.txt'
+//END OF INITIALIZING.
+//_______________________________________________________________________________________________________________________________________________________________________  
+//BUILD & PACKING
+if(isBuildAndPackageRequired){
+    echo 'Compile and Packaging runs as separate entities , it is inferred that the App package is compiler dependant.'
     stage('Compile, Unit Test & Package') {
       echo 'Working Directory for Docker Build file: ' + appWorkingDir
       echo "Build Tag Name: ${dockerRepo}/${dockerImageName}-build:${env.BUILD_NUMBER}"
@@ -72,18 +71,15 @@ if (fileExists(buildDockerFile) && fileExists(distDockerFile)) {
       
       appCompileAndPackageImg = docker.build("${dockerRepo}/${dockerImageName}-build:${env.BUILD_NUMBER}", "--file ${buildDockerFile} ${appWorkingDir}")      
       
-      //Reading the CMD from Docker file and would be executing within the container. This is due to the behaviour of this plugin
-      //TODO - Danger zone. This approach is not based on grammer. So in case if the CMD is not shell (if exec) or ENTRYPOINT is given, this approach would not work
-      def dockerCMD = readFile buildDockerFile
-      echo dockerCMD.substring(dockerCMD.indexOf('CMD')+3, dockerCMD.length())      
-      appCompileAndPackageImg.inside('--net=host') {        
-        sh dockerCMD.substring(dockerCMD.indexOf('CMD')+3, dockerCMD.length())
-      }
-      //End of Danger Zone code      
-    }
-  } else {
-    echo 'There is no Compile and Package as seperate step'
-  }
+def dockerCMD = readFile buildDockerFile
+echo dockerCMD.substring(dockerCMD.indexOf('CMD')+3, dockerCMD.length())      
+appCompileAndPackageImg.inside('--net=host') {        
+sh dockerCMD.substring(dockerCMD.indexOf('CMD')+3, dockerCMD.length())
+}
+}
+} else {
+echo 'There is no Compile and Package as seperate step'
+}
   //---------------------------------------
   
   if("${stage}".toUpperCase() == 'BUILD') {
