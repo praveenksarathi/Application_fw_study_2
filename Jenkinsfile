@@ -18,7 +18,7 @@ node {
         //echo "GIT PATH: ${scmPath}"
         try {
             //If we use git clone, it will not clone in the same path if we rebuild the pipeline
-            sh 'ls -a | xargs rm -fr'
+            //sh 'ls -a | xargs rm -fr' 
         } catch (error) {
         }
         sh "git clone ${scmPath} ."
