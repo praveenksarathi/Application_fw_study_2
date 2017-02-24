@@ -84,7 +84,7 @@ echo 'Compile and Package are not seperate steps , it is inferred that the packa
   
   if("${stage}".toUpperCase() == 'BUILD') {
     echo 'It is inferred that the package is a Build only application , hence it is moved to a temporary repository'
-    docker.withRegistry("http://${temporaryDockerRegistry}/", 'docker-registry-login') {
+    docker.withRegistry("http://${tempDocker}/", 'docker-registry-login') {
       def pcImg
       stage('Dockerization & Stage') {
         pcImg = docker.build("${dockerRepo}/${dockerImageName}:${env.BUILD_NUMBER}", "--file ${distDockerFile} ${appWorkingDir}")
@@ -93,7 +93,7 @@ echo 'Compile and Package are not seperate steps , it is inferred that the packa
     }   
   } else if ("${stage}".toUpperCase() == 'DEPLOY') {
     echo 'It is inferred that the package is a deploy only application , hence it has to be moved to a permanent repository'
-    docker.withRegistry("https://${permanentDockerRegistry}/", 'docker-registry-login') {
+    docker.withRegistry("https://${permDocker}/", 'docker-registry-login') {
       def pcImg
       stage('Dockerization & Publish') {
         pcImg = docker.build("${dockerRepo}/${dockerImageName}:${env.BUILD_NUMBER}", "--file ${distDockerFile} ${appWorkingDir}")
@@ -102,7 +102,7 @@ echo 'Compile and Package are not seperate steps , it is inferred that the packa
     }    
   } else if ("${stage}".toUpperCase() == 'CERTIFY'){
     echo 'It is inferred that the package is a certify only application , hence it has to be moved to a provisioned with a runtime sandbox environment and push it to temporary repository'
-    docker.withRegistry("http://${temporaryDockerRegistry}/", 'docker-registry-login') {
+    docker.withRegistry("http://${tempDocker}/", 'docker-registry-login') {
       def pcImg
       stage('Certify') {
         pcImg = docker.build("${dockerRepo}/${dockerImageName}:${env.BUILD_NUMBER}", "--file ${distDockerFile} ${appWorkingDir}")
