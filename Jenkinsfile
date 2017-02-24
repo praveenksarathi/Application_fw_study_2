@@ -78,66 +78,43 @@ sh dockerCMD.substring(dockerCMD.indexOf('CMD')+3, dockerCMD.length())
 }
 }
 } else {
-echo 'There is no Compile and Package as seperate step'
+echo 'Compile and Package are not seperate steps , it is inferred that the package is not compiler dependant'
 }
   //---------------------------------------
   
   if("${stage}".toUpperCase() == 'BUILD') {
-    echo 'The requested stage is Build only. Hence pushing the successful image into temporary repo'
-    //---------------------------------------
-    // We are pushing to a private Temporary Docker registry as this is just Build case.
-    // 'docker-registry-login' is the username/password credentials ID as defined in Jenkins Credentials.
-    // This is used to authenticate the Docker client to the registry.
-    //docker.withRegistry("http://${temporaryDockerRegistry}/", 'docker-registry-login') {
-    //withDockerRegistry([credentialsId: 'docker-registry-login', url: temporaryDockerRegistry]) {
-   docker.withRegistry("http://${temporaryDockerRegistry}/", 'docker-registry-login') {
+    echo 'It is inferred that the package is a Build only application , hence it is moved to a temporary repository'
+    docker.withRegistry("http://${temporaryDockerRegistry}/", 'docker-registry-login') {
       def pcImg
       stage('Dockerization & Stage') {
-        // Let us tag and push the newly built image. Will tag using the image name provided. No need of Docker hostname as it appends itself.
         pcImg = docker.build("${dockerRepo}/${dockerImageName}:${env.BUILD_NUMBER}", "--file ${distDockerFile} ${appWorkingDir}")
         pcImg.push();
       }
     }   
   } else if ("${stage}".toUpperCase() == 'DEPLOY') {
-    echo 'The requested stage is Deploy. Hence without certifying, the image is pushed to permanent repo'
-    //withDockerRegistry([credentialsId: 'docker-registry-login', url: permanentDockerRegistry]) {
+    echo 'It is inferred that the package is a deploy only application , hence it has to be moved to a permanent repository'
     docker.withRegistry("https://${permanentDockerRegistry}/", 'docker-registry-login') {
       def pcImg
       stage('Dockerization & Publish') {
-        // Let us tag and push the newly built image. Will tag using the image name provided. No need of Docker hostname as it appends itself.
         pcImg = docker.build("${dockerRepo}/${dockerImageName}:${env.BUILD_NUMBER}", "--file ${distDockerFile} ${appWorkingDir}")
         pcImg.push('latest');
       }
     }    
   } else if ("${stage}".toUpperCase() == 'CERTIFY'){
-    echo 'The requested stage is Certify. Hence just publishing to temporary repo and provisioning sandbox'
+    echo 'It is inferred that the package is a certify only application , hence it has to be moved to a provisioned with a runtime sandbox environment and push it to temporary repository'
     docker.withRegistry("http://${temporaryDockerRegistry}/", 'docker-registry-login') {
       def pcImg
       stage('Certify') {
-        // Let us tag and push the newly built image. Will tag using the image name provided. No need of Docker hostname as it appends itself.
-        //pcImg = docker.build("${temporaryDockerRegistry}/${dockerRepo}/${dockerImageName}:${env.BUILD_NUMBER}", "--file ${distDockerFile} ${appWorkingDir}")
         pcImg = docker.build("${dockerRepo}/${dockerImageName}:${env.BUILD_NUMBER}", "--file ${distDockerFile} ${appWorkingDir}")
         pcImg.push('SNAPSHOT');
       }
     }   
   }
-  //---------------------------------------
-  
+//END OF IMAGE PUSHING INTO REPOSITORY
+// NEXUS UPDATE
   stage('Publish Jenkins Output to Nexus'){
-    //TODO in code - Tune it later. Dirty solution to identify the Jenkins generated artifacts for Nexus. 
-    //TODO in Jenkins - Needs a Credential with the name "Nexus"
-    //TODO in Nexus web - Created a Hosted Site Repository with the name MEC
-    //TODO - Nexus3 support - Check the Sonatype plugin once released
-    //Nexus is a great component artifact repo. Does not look great dealing with binary documents and intermediate outputs.
-    //The plugin is too weak. It can upload only one file and hence Zipped
-    echo 'Publishing the artifacts...';
-    //def PWD = pwd(); //"${PWD}/artifacts.tar.gz"
-    sh 'find . -type f -newer Nexus.txt -print0 | tar -czvf artifacts.tar.gz --ignore-failed-read --null -T -'
-    //Nexus 2
-    //nexusArtifactUploader artifacts: [[artifactId: "${env.JOB_NAME}", classifier: '', file: 'artifacts.tar.gz', type: 'gzip']], credentialsId: 'Nexus', groupId: 'org.jenkins-ci.main.mec', nexusUrl: '13.55.146.108:8085/nexus', nexusVersion: 'nexus2', protocol: 'http', repository: 'MEC',version: "${env.BUILD_NUMBER}"
-    //Nexus 3
-    nexusArtifactUploader artifacts: [[artifactId: "${env.JOB_NAME}", classifier: '', file: 'artifacts.tar.gz', type: 'gzip']], credentialsId: 'Nexus', groupId: 'org.jenkins-ci.main.mec', nexusUrl: '13.55.146.108:8084', nexusVersion: 'nexus3', protocol: 'http', repository: 'MEC',version: "${env.BUILD_NUMBER}"
-    sh 'rm Nexus.txt'    
-    //Dirty solution ends
-  }  
+        echo 'Publishing the artifacts...';
+        sh 'rm Nexus.txt'
+//NEXUS FLOW ENDS HERE
+  }
 }
