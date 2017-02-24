@@ -1,69 +1,58 @@
-//TODO - Make SVN and GIT Checkout steps perfect with Jenkins way. Do not use Shell way.
-
-def temporaryDockerRegistry = 'ec2-13-55-19-58.ap-southeast-2.compute.amazonaws.com'
-def permanentDockerRegistry = 'ec2-13-54-206-33.ap-southeast-2.compute.amazonaws.com'
+// This is a sample program to study Continous Integration 
+def TempDocker = 'ec2-13-55-19-58.ap-southeast-2.compute.amazonaws.com'
+def permDocker = 'ec2-13-54-206-33.ap-southeast-2.compute.amazonaws.com'
 node {
-  //--------------------------------------
-  stage('Code Pickup') {
-    echo "Source Code Repository Type : ${scmSourceRepo}"
-    echo "Source Code Repository Path : ${scmPath}"
+    stage('Code Pickup') {
+    echo "Source Code Repository Type : ${CodeType}"
+    echo "Source Code Repository Path : ${CodeLoc}"
     
-    if("${scmSourceRepo}".toUpperCase()=='SVN'){
-        //Not a perfect solution. Reimplement with SVN Step or checkout Step
-        sh "svn co --username ${scmUsername} --password ${scmPassword} ${scmPath} ."
+    if("${CodeType}".toUpperCase()=='SVN'){
+        sh "svn co --username ${scmUsername} --password ${scmPassword} ${CodeLoc} ."
         
-    } else if("${scmSourceRepo}".toUpperCase()=='GIT'){
-        //Not a perfect Solution. Reimplement with Git Step or checkout Step
-        scmPath = scmPath.substring(0, scmPath.indexOf("//")+2) + scmUsername + ":" + scmPassword + "@" +scmPath.substring(scmPath.indexOf("//")+2, scmPath.length());
-        //echo "GIT PATH: ${scmPath}"
+    } else if("${CodeType}".toUpperCase()=='GIT'){
+        CodeLoc = CodeLoc.substring(0, CodeLoc.indexOf("//")+2) + scmUsername + ":" + scmPassword + "@" +CodeLoc.substring(CodeLoc.indexOf("//")+2, CodeLoc.length());
         try {
-            //If we use git clone, it will not clone in the same path if we rebuild the pipeline
             sh 'ls -a | xargs rm -fr' 
         } catch (error) {
         }
-        sh "git clone ${scmPath} ."
-        
-        //The below solutions not working with username and password
-        //git "${scmPath}" //Alternate option
-        //checkout scm: [$class:'GitSCM', userRemoteConfigs: [[url: scmPath ]]]
+        sh "git clone ${CodeLoc} ."        
     } else {
         error 'Unknown Source code repository. Only GIT and SVN are supported'
     }
   } 
-  //---------------------------------------
-  
-  //Preparing for Build & Package
-  def appModuleSeperated = fileExists 'app'
-  def testModuleSeperated = fileExists 'test'
-  def appPath = ''
-  def testPath = ''  
-  if (appModuleSeperated) {
-    echo 'There is a directory called app and hence assuming that /app is the working directory for application.'
-    appPath='app/'
-  } else {
-    echo 'There is no directory named app. Hence assuming that the current directory is the working directory.'
-    appPath = ''
-  }
+//END OF CODE PICKUP STAGE
 
-  if (testModuleSeperated) {
-    echo 'There is a directory called test and hence assuming that /test is the integration test automation suite.'
-    testPath = 'test/'  
-  } else {
-    echo 'There is no directory named test. Hence assuming that there is no integration testing automation suite.'
-    testPath = ''  
-  }
-  
-  def isBuildAndPackageRequired = true
-  def buildDockerFile = appPath + 'Dockerfile.build'
-  def distDockerFile = appPath + 'Dockerfile.dist'
-  if (fileExists(buildDockerFile) && fileExists(distDockerFile)) {
-    echo 'It looks like this application is compiler based application and hence there is a seperate dockerfile found for compile, build and packaging.'
+//BUILD & PACKAGE
+def appModuleSeperated = fileExists 'app'
+def testModuleSeperated = fileExists 'test'
+def appPath = ''
+def testPath = ''  
+if (appModuleSeperated) {
+    echo 'App Module is found , assumed that application is present in /app directory'
+    appPath='app/'
+} else {
+    echo 'There is no defined Application path , hence it is assumed that application is in current directory'
+    appPath = ''
+}
+
+if (testModuleSeperated) {
+    echo 'Test Module is found , assumed that Test Cases are Present for the concerned Modules and has to be performed'
+    testPath = 'test/'
+} else {
+    echo 'No Test Modules found , hence it is assumed that no test environment and / or test cases to be performed'
+    testPath = ''
+}
+def isBuildAndPackageRequired = true
+def buildDockerFile = appPath + 'Dockerfile.build'
+def distDockerFile = appPath + 'Dockerfile.dist'
+if (fileExists(buildDockerFile) && fileExists(distDockerFile)) {
+    echo 'Looks like this application contains seperate Build and Distribution Docker Files , its assumed to be developed in compiler dependant programming language.'
     isBuildAndPackageRequired = true;    
-  } else if (appPath + fileExists('Dockerfile')) {
-    echo 'It looks like there is only one docker file. May be this is interpreter based application technology.'
+} else if (appPath + fileExists('Dockerfile')) {
+    echo 'This application contains a single docker file , it is assumed to be developed in compiler in-dependant / interpreter based programming language.'
     isBuildAndPackageRequired = false;
     distDockerFile = appPath + 'Dockerfile'
-  } else {
+} else {
     echo 'Dockerfile not found under ' + appPath
   }
   def appWorkingDir = (appPath=='') ? '.' : appPath.substring(0, appPath.length()-1)
